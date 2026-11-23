@@ -1024,7 +1024,7 @@ void Game::applyDiplomaticAnswer(int answerer, const MpInboxItem& item, bool acc
         // (submitDealOffer). apply_* charges at resolution, so the prepayment
         // comes back either way -- once, here.
         if (toHostPlayer && terms.ourMoney > 0)
-            if (Country* sc = m_countries.getCountry(cidForIso(src))) sc->treasury += terms.ourMoney;
+            if (Country* sc = m_countries.getCountry(cidForIso(src))) sc->chargeTreasury(-terms.ourMoney);
         if (pending != m_pendingCeasefireTerms.end()) m_pendingCeasefireTerms.erase(pending);
         if (accept) {
             PendingDiplomaticAction da;

@@ -735,7 +735,7 @@ void Game::refundWarMaterials(int countryId, const WarPrice& p) {
 void Game::refundArtilleryOrder(int countryId, const std::string& ammoType,
                                 double& treasury) {
     const WarPrice p = artilleryPrice(ammoType, countryId);
-    treasury += p.money;
+    if (!hasRenewableTreasury(countryId)) treasury += p.money;
     refundWarMaterials(countryId, p);
 }
 
@@ -943,7 +943,7 @@ void Game::buyFixedInputsForGood(int countryId, CountryStockpile& pool, int good
         if (buy <= 0.0f) continue;
         pool.raw[i] += buy;
         const float cost = buy * unitPrice;
-        c->second.treasury -= (double)cost;
+        c->second.chargeTreasury((double)cost);
         prod.rawBought += buy;
         prod.rawBoughtCost += cost;
     }
@@ -1215,8 +1215,7 @@ void Game::processProduction(int countryId) {
                 const float discount = std::min(
                     0.8f, monumentEffect(countryId, (int)odmon::Kind::GrandExchange));
                 if (c != m_countries.getAll().end())
-                    c->second.treasury -=
-                        (double)shortfall * FUEL_SHORTFALL_PRICE * (1.0 - (double)discount);
+                    c->second.chargeTreasury((double)shortfall * FUEL_SHORTFALL_PRICE * (1.0 - (double)discount));
             }
         }
     }

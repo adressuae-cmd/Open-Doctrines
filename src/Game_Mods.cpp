@@ -1054,7 +1054,7 @@ bool Game::modSetCountryTreasury(int cid, double value) {
     if (!finiteAndSane(value)) return false;
     Country* c = m_countries.getCountry(cid);
     if (!c) return false;
-    c->treasury = value;
+    if (!c->freeSpending || value > c->treasury) c->treasury = value;
     return true;
 }
 
@@ -1064,7 +1064,7 @@ bool Game::modAddCountryTreasury(int cid, double delta) {
     if (!c) return false;
     double next = c->treasury + delta;
     if (!finiteAndSane(next)) return false;
-    c->treasury = next;
+    if (!c->freeSpending || delta > 0.0) c->treasury = next;
     return true;
 }
 

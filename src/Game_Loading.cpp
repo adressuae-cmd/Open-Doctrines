@@ -702,6 +702,7 @@ void Game::updateLoading() {
                 savedCid = meta.playerCountryId;
                 if (savedCid > 0 && m_countries.getCountry(savedCid)) {
                     m_playerCountryId = savedCid;
+                    replenishPlayerTreasury();
                     // Sync per-country research into global nodes
                     for (auto& n : m_researchNodes)
                         n.researched = hasResearched(n.id, savedCid);

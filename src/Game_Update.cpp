@@ -1368,7 +1368,7 @@ void Game::update(float dt) {
                                             it = m_pendingArtilleryOrders.erase(it);
                                         } else ++it;
                                     }
-                                    treasury -= price.money;
+                                    m_countries.getAll()[m_playerCountryId].chargeTreasury(price.money);
                                     payWarMaterials(m_playerCountryId, price);
                                     m_pendingArtilleryOrders.push_back({m_artillerySourceProvince, hp->id, m_artillerySelectedType});
                                     if (m_netSession) achNoteArtillery(m_artillerySelectedType, hp->id);

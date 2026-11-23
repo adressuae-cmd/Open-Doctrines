@@ -3166,8 +3166,7 @@ void Game::processEconomy(int countryId) {
                     cs.armyExpenses, cs.navyExpenses, cs.policyCosts, cs.minorityCosts, cs.researchCost,
                     cs.pacificationCost, cs.industryUpkeep);
     }
-    treasury += net;
-    if (hasRenewableTreasury(countryId)) replenishPlayerTreasury();
+    treasury += hasRenewableTreasury(countryId) ? std::max(0.0f, cs.total) : net;
 
     // Where the money goes, when asked. See src/ai/MoneyLedger.h.
     money::tick();
@@ -5000,7 +4999,7 @@ void Game::eliminateDefeatedCountries() {
         for (auto& [pid, units] : m_provinceArmies)
             units.erase(std::remove_if(units.begin(), units.end(),
                 [cid](auto& u) { return u.countryId == cid; }), units.end());
-        c.treasury = 0;
+        if (!c.freeSpending) c.treasury = 0;
         m_countryBalances[cid] = 0;
 
         // A STATE WITH NO TERRITORY IS NOT FIGHTING ANYBODY.
@@ -5660,8 +5659,8 @@ bool Game::submitDealOffer(int srcCid, int tgtCid, bool trade, CeasefireTerms te
     if (hasPendingDiplomacy(src->isoA3, tgt->isoA3)) return false;
 
     // What each side can actually pay, and what the sender actually holds.
-    const int srcCash = std::max(0, (int)src->treasury);
-    const int tgtCash = std::max(0, (int)tgt->treasury);
+    const int srcCash = src->cashOfferLimit();
+    const int tgtCash = tgt->cashOfferLimit();
     terms.ourMoney   = std::clamp(terms.ourMoney, 0, srcCash);
     terms.theirMoney = std::clamp(terms.theirMoney, 0, tgtCash);
     auto sIt = m_countryStockpiles.find(srcCid);
@@ -5682,7 +5681,7 @@ bool Game::submitDealOffer(int srcCid, int tgtCid, bool trade, CeasefireTerms te
     if (!queueDiplomaticAction(da)) return false;
     // The player pays now and is refunded on a refusal; everyone else pays at
     // resolution (applyCeasefireTerms is told which by the same test).
-    if (srcCid == m_playerCountryId) src->treasury -= terms.ourMoney;
+    if (srcCid == m_playerCountryId) src->chargeTreasury(terms.ourMoney);
     m_pendingCeasefireTerms[src->isoA3 + "|" + tgt->isoA3] = terms;
     return true;
 }
@@ -6374,7 +6373,7 @@ void Game::processDiplomaticRequests() {
                             for (auto& [cid, c] : m_countries.getAll())
                                 if (c.isoA3 == da.sourceIso) { srcCid = cid; break; }
                             if (srcCid >= 0)
-                                m_countries.getAll()[srcCid].treasury += refund;
+                                m_countries.getAll()[srcCid].chargeTreasury(-refund);
                         }
                         m_pendingCeasefireTerms.erase(tit);
                     }
@@ -6468,7 +6467,7 @@ void Game::processDiplomaticRequests() {
                             for (auto& [cid, c] : m_countries.getAll())
                                 if (c.isoA3 == da.sourceIso) { srcCid = cid; break; }
                             if (srcCid >= 0)
-                                m_countries.getAll()[srcCid].treasury += refund;
+                                m_countries.getAll()[srcCid].chargeTreasury(-refund);
                         }
                         m_pendingCeasefireTerms.erase(tit);
                     }
@@ -6498,7 +6497,7 @@ void Game::processDiplomaticRequests() {
                         for (auto& [cid, c] : m_countries.getAll())
                             if (c.isoA3 == da.sourceIso) { srcCid = cid; break; }
                         if (srcCid >= 0)
-                            m_countries.getAll()[srcCid].treasury += refund;
+                            m_countries.getAll()[srcCid].chargeTreasury(-refund);
                     }
                     m_pendingCeasefireTerms.erase(tit2);
                 }
@@ -6774,14 +6773,14 @@ void Game::applyCeasefireTerms(const std::string& sourceIso, const std::string& 
         double amt = (double)terms.ourMoney;
         if (!alreadyDeducted) {
             amt = std::min(amt, srcC.treasury);
-            srcC.treasury -= amt;
+            srcC.chargeTreasury(amt);
         }
         tgtC.treasury += amt;
         printf("[CEASEFIRE] %s pays %g to %s\n", sourceIso.c_str(), amt, targetIso.c_str());
     }
     if (terms.theirMoney > 0) {
         double amt = std::min((double)terms.theirMoney, tgtC.treasury);
-        tgtC.treasury -= amt;
+        tgtC.chargeTreasury(amt);
         srcC.treasury += amt;
         printf("[CEASEFIRE] %s pays %g to %s\n", targetIso.c_str(), amt, sourceIso.c_str());
     }

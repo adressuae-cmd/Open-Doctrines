@@ -1,4 +1,6 @@
 #pragma once
+#include <algorithm>
+#include <limits>
 #include <string>
 #include <vector>
 #include <unordered_map>
@@ -18,6 +20,10 @@ struct Country {
     // above 2^24 (~16.7M), so once a treasury grew past that, `treasury += net`
     // silently became a no-op and the economy appeared to freeze.
     double treasury = 0.0;
+    int cashOfferLimit() const {
+        return static_cast<int>(std::clamp(treasury, 0.0,
+            static_cast<double>(std::numeric_limits<int>::max())));
+    }
     float compassEconomic = 0.0f;  // -100 (left) to +100 (right)
     float compassSocial = 0.0f;    // -100 (auth) to +100 (libertarian)
     std::vector<std::string> research; // researched tech node IDs
@@ -78,6 +84,13 @@ struct Country {
     // politics + id when OD_AI_PERSONALITIES is set; neutral otherwise. Not
     // saved -- recomputed on load, so no save-format change.
     PersonalityProfile personality;
+
+    // Set for the current solo player's country; the balance itself is saved normally.
+    bool freeSpending = false;
+    void chargeTreasury(double amount) {
+        // A negative charge reverses an order. A free order has no cash refund.
+        if (!freeSpending) treasury -= amount;
+    }
 };
 
 class CountryMap {

@@ -6652,7 +6652,7 @@ std::string AISystem::execEconomy(int cid, int action) {
                 }
             if (c.treasury < cost) return didNothing("industry: cannot afford");
             if (c.treasury - cost < siegeEarmark(cid)) return didNothing("industry: earmarked for the front");
-            c.treasury -= cost;
+            c.chargeTreasury(cost);
             money::add(money::BUY_INDUSTRY, -(double)cost);
             issueOrder(PendingUpgrade{bestPid, "industry", nextLv, IND_TURNS[nextLv]});
             return TextFormat("industry lvl %d in prov %d ($%.0f)", nextLv, bestPid, cost);
@@ -6679,7 +6679,7 @@ std::string AISystem::execEconomy(int cid, int action) {
             // Forts are not industry: no industry discount (see Game::upgradeQuote).
             float cost = (float)FORT_COST[std::min(nextLv, 5)];
             if (c.treasury < cost) return didNothing("fort: cannot afford");
-            c.treasury -= cost;
+            c.chargeTreasury(cost);
             money::add(money::BUY_FORT, -(double)cost);
             issueOrder(PendingUpgrade{bestPid, "fortification", nextLv, 1});
             return TextFormat("fort lvl %d in prov %d ($%.0f)", nextLv, bestPid, cost);
@@ -6695,7 +6695,7 @@ std::string AISystem::execEconomy(int cid, int action) {
             if (c.treasury - cost < siegeEarmark(cid)) return didNothing("port: earmarked for the front");
             const auto ex = g.m_provincePorts.find(pid);
             const int next = (ex != g.m_provincePorts.end()) ? ex->second.level + 1 : 1;
-            c.treasury -= cost;
+            c.chargeTreasury(cost);
             money::add(money::BUY_PORT, -(double)cost);
             issueOrder(PendingUpgrade{pid, "port", next, 3});
             // The answer this turn has just changed. nextPortBuy caches per
@@ -6712,7 +6712,7 @@ std::string AISystem::execEconomy(int cid, int action) {
                 return didNothing("spec: no candidate");
             if (c.treasury < cost) return didNothing("spec: cannot afford");
             if (c.treasury - cost < siegeEarmark(cid)) return didNothing("spec: earmarked for the front");
-            c.treasury -= cost;
+            c.chargeTreasury(cost);
             money::add(money::BUY_SPECIALIZE, -(double)cost);
             issueOrder(PendingSpecialization{bestPid, bestRes, 3});
             return TextFormat("specialize %s in prov %d", bestRes, bestPid);
@@ -6768,7 +6768,7 @@ std::string AISystem::execEconomy(int cid, int action) {
             for (auto& [pid, port] : g.m_provincePorts) {
                 const Province* p = g.m_provinces.getProvinceById(pid);
                 if (!p || p->countryId != cid || port.level < needPort) continue;
-                c.treasury -= cost;
+                c.chargeTreasury(cost);
                 money::add(money::BUY_SHIP, -(double)cost);
                 issueOrder(PendingShipBuild{pid, type, 3});
                 if (action == 5) statsFor(cid).destroyersBuilt++;
@@ -7775,7 +7775,7 @@ std::string AISystem::execWar(int cid, int action) {
             }
             if (!g.payWarMaterials(cid, price))
                 return didNothing("recruit: no munitions");
-            c.treasury -= price.money;
+            c.chargeTreasury(price.money);
             money::add(money::BUY_TROOPS, -(double)price.money);
             if (persDiag().on) {
                 PersDiag& d = persDiag();
@@ -8359,7 +8359,7 @@ std::string AISystem::execWar(int cid, int action) {
                     for (auto& ao : g.m_pendingArtilleryOrders)
                         if (ao.fromProvince == fr.pid) { pending = true; break; }
                     if (pending) continue;
-                    c.treasury -= usePrice.money;
+                    c.chargeTreasury(usePrice.money);
                     g.payWarMaterials(cid, usePrice);
                     issueOrder(PendingArtilleryOrder{fr.pid, nid, use->type});
                     return TextFormat("%s shell prov %d", use->type, nid);
@@ -8927,7 +8927,7 @@ void AISystem::fortifyReflex(int cid) {
     // Forts are not industry: no industry discount (see Game::upgradeQuote).
     const float cost = (float)FORT_COST[std::min(nextLv, 5)];
     if (c->treasury < cost) { if (persDiag().on) ++s_fortTooPoor; return; }
-    c->treasury -= cost;
+    c->chargeTreasury(cost);
     money::add(money::BUY_FORT, -(double)cost);
     if (persDiag().on) {
         PersDiag& d = persDiag();
@@ -10460,7 +10460,7 @@ std::string AISystem::execNavy(int cid, int action) {
                     // call a "rough range gate". The resolver enforces it now
                     // regardless, so an out-of-range order is simply dropped.
                     if (d > g.shipMaxRangeDeg(s)) continue;
-                    c.treasury -= usePrice.money;
+                    c.chargeTreasury(usePrice.money);
                     g.payWarMaterials(cid, usePrice);
                     issueOrder(PendingShipBombardOrder{(int)i, pid, use->type});
                     return TextFormat("bombard prov %d (%s)", pid, use->type);

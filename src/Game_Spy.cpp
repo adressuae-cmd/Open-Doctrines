@@ -120,7 +120,7 @@ std::string Game::spyRefusal(int spy, int target, uint8_t kind) const {
 bool Game::launchSpyOp(int spy, int target, uint8_t kind) {
     if (!spyRefusal(spy, target, kind).empty()) return false;
     const float cost = spyCost(spy, target, kind);
-    m_countries.getAll()[spy].treasury -= cost;
+    m_countries.getAll()[spy].chargeTreasury(cost);
     SpyOp op;
     op.spy = spy;
     op.target = target;
@@ -147,7 +147,7 @@ void Game::processSpyOps() {
                 if (c.isoA3 == a) sc = cid;
                 if (c.isoA3 == b) tc = cid;
             }
-            m_countries.getAll()[sc].treasury += spyCost(sc, tc, (uint8_t)kind);
+            m_countries.getAll()[sc].chargeTreasury(-spyCost(sc, tc, (uint8_t)kind));
             const bool ok = sc > 0 && tc > 0 && launchSpyOp(sc, tc, (uint8_t)kind);
             printf("[SPY] test launch %s -> %s kind %d: %s%s\n", a, b, kind, ok ? "ok" : "refused: ",
                    ok ? "" : spyRefusal(sc, tc, (uint8_t)kind).c_str());
@@ -160,7 +160,7 @@ void Game::processSpyOps() {
         auto& all = m_countries.getAll();
         auto it = all.find(cid);
         if (it == all.end()) continue;
-        it->second.treasury -= counterIntelCost(cid);
+        it->second.chargeTreasury(counterIntelCost(cid));
     }
 
     std::vector<SpyOp> still;

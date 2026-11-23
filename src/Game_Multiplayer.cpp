@@ -734,6 +734,7 @@ bool Game::mpStartSession(const std::vector<std::string>& candidates,
         delete m_netSession;
         m_netSession = nullptr;
     }
+    for (auto& entry : m_countries.getAll()) entry.second.freeSpending = false;
     if (!m_netSession) m_netSession = new NetSession();
     m_mpLastJoinCandidates = candidates;
     m_mpLastJoinCode = code;
@@ -4497,7 +4498,7 @@ void Game::mpApplyOrders(int countryId, const std::vector<uint8_t>& payload) {
         const WarPrice price = recruitPrice(o.count, countryId, o.type);
         if (cit->second.treasury < price.money) return;   // cannot afford it, so it does not happen
         if (!payWarMaterials(countryId, price)) return;   // no shells, no soldiers
-        cit->second.treasury -= price.money;
+        cit->second.chargeTreasury(price.money);
         m_pendingRecruitments.push_back(o);
     });
 
@@ -4568,7 +4569,7 @@ void Game::mpApplyOrders(int countryId, const std::vector<uint8_t>& payload) {
 
         auto cit = m_countries.getAll().find(countryId);
         if (cit == m_countries.getAll().end() || cit->second.treasury < price) return;
-        cit->second.treasury -= price;
+        cit->second.chargeTreasury(price);
 
         o.turnsRemaining = 3;                 // set here, never taken from the wire
         m_pendingShipBuilds.push_back(o);

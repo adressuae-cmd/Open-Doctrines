@@ -255,7 +255,9 @@ void Game::eventResolve(const EventDef& e, uint32_t key) {
                                : (double)ef.value;
         switch (ef.op) {
             case EventEffect::Treasury: {
-                if (Country* c = m_countries.getCountry(ownerCid)) c->treasury += amt;
+                if (Country* c = m_countries.getCountry(ownerCid)) {
+                    if (!c->freeSpending || amt > 0) c->treasury += amt;
+                }
                 break;
             }
             case EventEffect::Population: {

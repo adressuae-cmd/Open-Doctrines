@@ -141,7 +141,7 @@ bool Game::buildMonument(int countryId, int pid, int kindIndex) {
     auto& all = m_countries.getAll();
     auto cit = all.find(countryId);
     if (cit == all.end()) return false;
-    cit->second.treasury -= odmon::levelCost(kind, 0);
+    cit->second.chargeTreasury(odmon::levelCost(kind, 0));
 
     odmon::Holding h;
     h.provinceId = pid;
@@ -167,7 +167,7 @@ bool Game::upgradeMonument(int countryId, int pid) {
     auto& all = m_countries.getAll();
     auto cit = all.find(countryId);
     if (cit == all.end() || cit->second.treasury < cost) return false;
-    cit->second.treasury -= cost;
+    cit->second.chargeTreasury(cost);
     it->second.level++;
     rebuildMonumentEffects();
     return true;
@@ -179,7 +179,7 @@ bool Game::dismantleMonument(int countryId, int pid) {
     auto& all = m_countries.getAll();
     auto cit = all.find(countryId);
     if (cit == all.end() || cit->second.treasury < odmon::kDismantleCost) return false;
-    cit->second.treasury -= odmon::kDismantleCost;
+    cit->second.chargeTreasury(odmon::kDismantleCost);
     m_monuments.erase(it);
     rebuildMonumentEffects();
     return true;
@@ -211,7 +211,7 @@ bool Game::moveMonument(int countryId, int fromPid, int toPid) {
     auto& all = m_countries.getAll();
     auto cit = all.find(countryId);
     if (cit == all.end() || cit->second.treasury < cost) return false;
-    cit->second.treasury -= cost;
+    cit->second.chargeTreasury(cost);
 
     odmon::Holding moved = it->second;
     moved.provinceId = toPid;

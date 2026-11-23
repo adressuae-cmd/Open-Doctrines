@@ -1154,7 +1154,7 @@ void Game::drawCeasefireScreen() {
             if (m_ceasefireMoneyDrag == slot) {
                 float t = (mouse.x - slr.x) / slr.width;
                 t = t < 0.0f ? 0.0f : (t > 1.0f ? 1.0f : t);   // past either end pins
-                value = (int)(t * max + 0.5f);
+                value = static_cast<int>(static_cast<double>(t) * max + 0.5);
             }
             int fill = (int)(slr.width * value / std::max(1, max));
             DrawRectangle((int)slr.x, (int)slr.y, fill, (int)slr.height, col);
@@ -1171,8 +1171,8 @@ void Game::drawCeasefireScreen() {
     // (see the clamp further down) and again when it was executed, so the deal
     // you agreed to was not the deal you built, and the number you dragged to
     // was never the number that moved.
-    int pMax = (int)std::max(0.0, m_countries.getAll()[m_playerCountryId].treasury);
-    int tMax = (int)std::max(0.0, targetC->treasury);
+    int pMax = m_countries.getAll()[m_playerCountryId].cashOfferLimit();
+    int tMax = targetC->cashOfferLimit();
     drawMoneySlider(0, "Money we offer", m_ceasefireOurMoney, pMax, Color{40, 200, 40, 220});
     drawMoneySlider(1, "Money we demand", m_ceasefireTheirMoney, tMax, Color{220, 60, 60, 220});
 

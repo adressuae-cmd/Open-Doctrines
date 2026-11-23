@@ -2666,11 +2666,14 @@ void Game::replenishPlayerTreasury() {
     auto player = countries.find(m_playerCountryId);
     // Keep a finite operating balance for saves and integer-valued trade controls.
     constexpr double reserve = 1000000000.0;
-    if (player != countries.end() && player->second.treasury < reserve)
-        player->second.treasury = reserve;
+    if (player == countries.end()) return;
+    player->second.freeSpending = true;
+    if (player->second.treasury < reserve) player->second.treasury = reserve;
 }
 
 void Game::commitPlayerCountry(int countryId) {
+    if (Country* previous = m_countries.getCountry(m_playerCountryId))
+        previous->freeSpending = false;
     m_playerCountryId = countryId;
     replenishPlayerTreasury();
     achPlayerChose(countryId);

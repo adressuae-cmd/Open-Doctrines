@@ -2004,7 +2004,7 @@ void Game::drawCountryPanel() {
             upgBg = Color{20, 60, 30, 220}; upgBd = Color{60, 180, 80, 200};
         }
         if (drawActBtn(panelX + pad, btnStartY, btnW * 2 + btnGap, btnH, upgLabel, upgDisabled, upgBg, upgBd) && !upgDisabled && !atHardCap && !atCapacityCap && !atResearchCap && canAfford && !upgradePending) {
-            treasury -= upgradeCost;
+            m_countries.getAll()[m_playerCountryId].chargeTreasury(upgradeCost);
             m_pendingUpgrades.push_back({selPid, "industry", nextLv, turnsToBuild});
             Audio::get().playSfx("build_industry", 0.04f);
         }
@@ -2316,7 +2316,7 @@ void Game::drawCountryPanel() {
             bg = Color{20, 50, 50, 220}; bd = Color{60, 160, 160, 200};
         }
         if (drawActBtn(panelX + pad, btnStartY, panelW - pad * 2, btnH, label, btnDisabled, bg, bd) && !btnDisabled && !atHardCap && !atResearchCap && canAfford && !fortPending) {
-            treasury -= fortCost;
+            m_countries.getAll()[m_playerCountryId].chargeTreasury(fortCost);
             m_pendingUpgrades.push_back({selPid, "fortification", nextLv, turnsToBuild});
             // At the order, not at completion: this is the click's feedback.
             // Finishing is already announced by a notification.
@@ -2577,7 +2577,7 @@ void Game::drawCountryPanel() {
                         if (newCount > poolLeft) newCount = poolLeft;
                         if (newCount < 1) newCount = 0;
                     }
-                    treasury += oldCost - newCost;
+                    m_countries.getAll()[m_playerCountryId].chargeTreasury(newCost - oldCost);
                     pr.count = newCount;
                 }
                 // Show cancel button with live cost
@@ -2589,7 +2589,7 @@ if (drawActBtn(panelX + pad, recruitBtnY, btnW * 2 + btnGap, btnH,
                 TextFormat(T("Cancel %s (%s, $%.0f)"), T(troopCost(pr.type).name),
                            formatTroops(pr.count).c_str(), currentCost),
                 false, cBg, cBd)) {
-                    treasury += currentCost;
+                    m_countries.getAll()[m_playerCountryId].chargeTreasury(-currentCost);
                     m_pendingRecruitments.erase(m_pendingRecruitments.begin() + pri);
                 }
                 break;
@@ -2608,7 +2608,7 @@ if (drawActBtn(panelX + pad, recruitBtnY, btnW * 2 + btnGap, btnH,
                     : TextFormat(T("Recruit %s ($%.0f)"),
                                  formatPop(recruitCount / 100).c_str(), recruitCost),
                 !canRecruit, rBg, rBd) && canRecruit) {
-                treasury -= recruitCost;
+                m_countries.getAll()[m_playerCountryId].chargeTreasury(recruitCost);
                 payWarMaterials(m_playerCountryId, recruitPr);
                 m_pendingRecruitments.push_back({selPid, recruitCount, 1, m_recruitType});
                 achNote("troops_recruited", (double)recruitCount);
@@ -2957,7 +2957,7 @@ if (drawActBtn(panelX + pad, recruitBtnY, btnW * 2 + btnGap, btnH,
                 pBg = Color{20, 50, 70, 220}; pBd = Color{60, 140, 200, 200};
             }
             if (drawActBtn(panelX + pad, btnStartY, btnW * 2 + btnGap, btnH, pLabel, !canUpgradePort, pBg, pBd) && canUpgradePort) {
-                treasury -= 60.0f * (portLevel + 1);
+                m_countries.getAll()[m_playerCountryId].chargeTreasury(60.0f * (portLevel + 1));
                 m_pendingUpgrades.push_back({selPid, "port", portLevel + 1, 3});
             }
 
@@ -2995,7 +2995,7 @@ if (drawActBtn(panelX + pad, recruitBtnY, btnW * 2 + btnGap, btnH,
             if (drawActBtn(panelX + pad + btnW + btnGap, row2Y, btnW, btnH,
                 portLevel < 2 ? T("Requires Port Lv.2")
                 : T("Build Destroyer ($15, 3t)"), !canDestroyer, dBg, dBd) && canDestroyer) {
-                treasury -= 15.0f;
+                m_countries.getAll()[m_playerCountryId].chargeTreasury(15.0f);
                 m_pendingShipBuilds.push_back({selPid, "destroyer", 3});
             }
             int row3Y = row2Y + btnH + btnGap;
@@ -3004,7 +3004,7 @@ if (drawActBtn(panelX + pad, recruitBtnY, btnW * 2 + btnGap, btnH,
             if (drawActBtn(panelX + pad, row3Y, btnW * 2 + btnGap, btnH,
                 portLevel < 3 ? T("Requires Port Lv.3")
                 : T("Build Carrier ($40, 3t)"), !canCarrier, cBg, cBd) && canCarrier) {
-                treasury -= 40.0f;
+                m_countries.getAll()[m_playerCountryId].chargeTreasury(40.0f);
                 m_pendingShipBuilds.push_back({selPid, "carrier", 3});
             }
         } else if (isOwnProv) {
@@ -3015,7 +3015,7 @@ if (drawActBtn(panelX + pad, recruitBtnY, btnW * 2 + btnGap, btnH,
             Color pBd = canBuildPort ? Color{60, 140, 200, 200} : Color{40, 40, 50, 150};
             if (drawActBtn(panelX + pad, btnStartY, btnW * 2 + btnGap, btnH,
                 TextFormat(T("Build Port%s ($60, 3t)"), noPortReason), !canBuildPort, pBg, pBd) && canBuildPort) {
-                treasury -= 60.0f;
+                m_countries.getAll()[m_playerCountryId].chargeTreasury(60.0f);
                 m_pendingUpgrades.push_back({selPid, "port", 1, 3});
                 Audio::get().playSfx("build_port", 0.04f);
             }
@@ -4504,7 +4504,7 @@ void Game::drawInner() {
                                 it = vec.erase(it);
                             } else ++it;
                         }
-                        treasury -= price.money;
+                        m_countries.getAll()[m_playerCountryId].chargeTreasury(price.money);
                         vec.push_back({m_shipActionShipIdx, m_shipActionHoverProvince, m_shipBombardAmmo});
                     }
                     m_shipActionMode = 0; m_shipActionShipIdx = -1;
@@ -4536,7 +4536,7 @@ void Game::drawInner() {
                     float refundAmt = 0;
                     refundAmt = artyMoneyCost(it->ammoType.c_str());
                     if (refundAmt > 0)
-                        m_countries.getAll()[m_playerCountryId].treasury += refundAmt;
+                        m_countries.getAll()[m_playerCountryId].chargeTreasury(-refundAmt);
                     it = m_pendingShipBombardOrders.erase(it);
                 } else ++it;
             }
@@ -6167,10 +6167,9 @@ void Game::drawInner() {
                 const std::string shownName = odText::fitToWidth(
                     od::i18n::properName(pc->name), bannerW - 12 - 92, nameFs, 13);
                 DrawText(shownName.c_str(), 12, 18, nameFs, WHITE);
-                float treasury = pc->treasury;
+                const double treasury = pc->treasury;
                 Color balCol = (treasury >= 0) ? Color{180, 230, 180, 255} : Color{230, 130, 130, 255};
-                DrawText(hasRenewableTreasury(m_playerCountryId) ? T("Unlimited") : TextFormat("$%.2f", treasury),
-                         12, 44, 14, balCol);
+                DrawText(TextFormat("$%.2f", treasury), 12, 44, 14, balCol);
             }
         }
     }
@@ -6545,7 +6544,7 @@ bool Game::queueUpgrade(int provinceId, const char* type, int countryId) {
 
     if (treasury < cost) return false;
     if (pool) pool->goods[GOOD_MACHINERY] -= machinery;
-    treasury -= cost;
+    it->second.chargeTreasury(cost);
     // next and turns come from the quote above, never from a caller. That is
     // the whole point: this is the only place a build is created, so it is the
     // only place that has to be right about what one costs and how long it
@@ -6640,7 +6639,7 @@ bool Game::queueSpecialization(int pid, const char* resource, int countryId) {
     if (it == m_countries.getAll().end()) return false;
     double& treasury = it->second.treasury;
     if (treasury < cost) return false;
-    treasury -= cost;
+    it->second.chargeTreasury(cost);
     // The resource comes from the quote, not the caller: "" means "whatever
     // pays best here", and resolving it anywhere else would let a client pick
     // a resource the province does not have.
