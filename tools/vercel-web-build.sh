@@ -12,8 +12,8 @@ if [ ! -d "$emsdk_home/.git" ]; then
   mkdir -p "$(dirname "$emsdk_home")"
   git clone -q --depth 1 https://github.com/emscripten-core/emsdk.git "$emsdk_home"
 fi
-"$emsdk_home/emsdk" install 3.1.73
-"$emsdk_home/emsdk" activate 3.1.73
+"$emsdk_home/emsdk" install latest
+"$emsdk_home/emsdk" activate latest
 # shellcheck disable=SC1090
 source "$emsdk_home/emsdk_env.sh"
 
