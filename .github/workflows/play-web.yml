@@ -1,0 +1,61 @@
+# Deploy the real OpenDoctrines game from this repository's latest main.
+# Builds the actual C++ game to WebAssembly; no iframe, mock UI or gameplay changes.
+name: Play OpenDoctrines (web)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: open-doctrines-pages
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Check out modified game
+        uses: actions/checkout@v4
+      - name: Set up Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: latest
+      - name: Install font rendering build dependency
+        run: python3 -m pip install --user fonttools
+      - name: Compile the actual game for browser
+        run: |
+          emcmake cmake -B build-web -DCMAKE_BUILD_TYPE=Release -DOD_WEB_MAXIMUM_MEMORY=2GB
+          emmake cmake --build build-web --target OpenDoctrines -j 4
+      - name: Assemble complete playable browser build
+        run: |
+          set -euo pipefail
+          mkdir -p site
+          cp build-web/index.html build-web/OpenDoctrines.js build-web/OpenDoctrines.wasm build-web/OpenDoctrines.data site/
+          if [ -f build-web/icon.png ]; then cp build-web/icon.png site/; fi
+          cp -r build-web/data site/data
+          touch site/.nojekyll
+          test -s site/index.html
+          test -s site/OpenDoctrines.wasm
+          test -s site/OpenDoctrines.data
+          test -d site/data/STDmaps
+          echo "Built from commit: ${GITHUB_SHA}"
+          du -sh site
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+      - name: Upload playable site
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
