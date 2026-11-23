@@ -1,0 +1,7 @@
+{
+  "version": 2,
+  "framework": null,
+  "buildCommand": "bash tools/vercel-web-build.sh",
+  "installCommand": "echo 'Build dependencies installed by build script'",
+  "outputDirectory": "site"
+}
