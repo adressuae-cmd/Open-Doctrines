@@ -207,6 +207,7 @@ void Game::handlePauseMenu() {
 }
 
 void Game::update(float dt) {
+    if (m_currentScreen == SCREEN_PLAYING) replenishPlayerTreasury();
     // The rating prompt, before anything else reads the pointer. It draws in
     // endFrame(), which is after the map has already taken this frame's clicks,
     // so consuming the click has to happen here or picking a star also picks a

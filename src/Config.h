@@ -103,7 +103,7 @@ struct Config {
      * language added in the middle of the list does not silently move
      * everybody who had chosen the one after it.
      */
-    std::string language = "en";
+    std::string language = "ar";
     /** The account terms and privacy policy have been accepted. */
     bool accountAgreed = false;
     /**

@@ -6169,7 +6169,8 @@ void Game::drawInner() {
                 DrawText(shownName.c_str(), 12, 18, nameFs, WHITE);
                 float treasury = pc->treasury;
                 Color balCol = (treasury >= 0) ? Color{180, 230, 180, 255} : Color{230, 130, 130, 255};
-                DrawText(TextFormat("$%.2f", treasury), 12, 44, 14, balCol);
+                DrawText(hasRenewableTreasury(m_playerCountryId) ? T("Unlimited") : TextFormat("$%.2f", treasury),
+                         12, 44, 14, balCol);
             }
         }
     }

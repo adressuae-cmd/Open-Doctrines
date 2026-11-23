@@ -2660,8 +2660,19 @@ void Game::updateCountrySelect() {
 // shows that popup at all. It was inline in the popup handler, which meant the
 // only way to start a game as somebody was to draw a dialog and click it.
 // ────────────────────────────────────────────────────────────────────────────
+void Game::replenishPlayerTreasury() {
+    if (!hasRenewableTreasury(m_playerCountryId)) return;
+    auto& countries = m_countries.getAll();
+    auto player = countries.find(m_playerCountryId);
+    // Keep a finite operating balance for saves and integer-valued trade controls.
+    constexpr double reserve = 1000000000.0;
+    if (player != countries.end() && player->second.treasury < reserve)
+        player->second.treasury = reserve;
+}
+
 void Game::commitPlayerCountry(int countryId) {
     m_playerCountryId = countryId;
+    replenishPlayerTreasury();
     achPlayerChose(countryId);
     fogPlayerChanged();
     const Country* pc = m_countries.getCountry(m_playerCountryId);

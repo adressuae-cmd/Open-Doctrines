@@ -1921,7 +1921,7 @@ bool Game::init(int screenW, int screenH, const char* title) {
     // Called even for English, which needs no file: the glyph list it builds
     // carries every language's own name for the picker, and skipping the call
     // left an English build with no 日本語 in the atlas to offer.
-    const std::string want = m_config.language.empty() ? "en" : m_config.language;
+    const std::string want = m_config.language.empty() ? "ar" : m_config.language;
     if (!od::i18n::setLanguage(want, m_dataDir)) {
         LoadLog() << "  falling back to English" << std::endl;
         m_config.language = "en";

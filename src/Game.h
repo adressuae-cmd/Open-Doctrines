@@ -3914,6 +3914,11 @@ public:
     std::unordered_map<int, std::vector<MinorityGroup>>& m_provinceMinorities = m_world.provinceMinorities;  // item 4
     std::unordered_map<std::string, Color> m_minorityColors;
     int m_playerCountryId = 0;
+    bool hasRenewableTreasury(int countryId) const {
+        return !m_netSession && countryId > 0 && countryId != SPC_CID &&
+               countryId == m_playerCountryId;
+    }
+    void replenishPlayerTreasury();
     std::vector<int> m_playableCountryIds;
     /// Scenario-local codes no map offers as a seat. See the definition.
     static bool countryWithheldFromPlay(const std::string& isoA3);

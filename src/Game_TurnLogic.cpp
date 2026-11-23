@@ -3167,6 +3167,7 @@ void Game::processEconomy(int countryId) {
                     cs.pacificationCost, cs.industryUpkeep);
     }
     treasury += net;
+    if (hasRenewableTreasury(countryId)) replenishPlayerTreasury();
 
     // Where the money goes, when asked. See src/ai/MoneyLedger.h.
     money::tick();

@@ -163,7 +163,7 @@ bool Config::load(const std::string& path) {
     discordLargeImage = findConfigString(json, "discordLargeImage", "");
     streamChatChannel = findConfigString(json, "streamChatChannel", "");
     streamChatSeconds = findFloat(json, "streamChatSeconds", 30.0f);
-    language = findConfigString(json, "language", "en");
+    language = findConfigString(json, "language", "ar");
     dateSystem = findConfigString(json, "date_system", "bc_ad");
     uiScale = findFloat(json, "uiScale", 1.0f);
     modScreenEffects = findBool(json, "modScreenEffects", true);
