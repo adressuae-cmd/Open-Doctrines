@@ -1,6 +1,25 @@
 <!DOCTYPE html>
 <html><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<script>
+// The canvas menus use one logical surface. Fit that surface to a short phone
+// screen before raylib reads the viewport and maps input into it.
+if (matchMedia('(pointer: coarse)').matches) {
+  function fitMobileViewport() {
+    var landscape = matchMedia('(orientation: landscape)').matches;
+    var shortSide = Math.min(screen.width, screen.height);
+    var longSide = Math.max(screen.width, screen.height);
+    var width = landscape ? longSide : shortSide;
+    var height = landscape ? shortSide : longSide;
+    var scale = Math.min(1, width / 720, height / 820);
+    document.querySelector('meta[name="viewport"]').content =
+      'width=' + Math.ceil(width / scale) + ',initial-scale=' + scale +
+      ',minimum-scale=' + scale + ',maximum-scale=' + scale + ',viewport-fit=cover';
+  }
+  fitMobileViewport();
+  matchMedia('(orientation: landscape)').addEventListener('change', fitMobileViewport);
+}
+</script>
 <link rel="icon" type="image/png" href="icon.png">
 <!-- ── THE LINK CARD FOR THE PAGE PEOPLE ACTUALLY PASTE ──
      /play/?join=CODE exists to be dropped into a Discord message. Until these
@@ -95,12 +114,10 @@
      way to tell a broken build from a slow download. This says what happened
      and shows the message, which is also the only way anyone will find out
      what the real cause is on a device we do not have. -->
-<div id="od_fail"><div>
-  <h1>OpenDoctrines could not start in this browser.</h1>
+<div id="od_fail" dir="rtl"><div>
+  <h1>تعذّر تشغيل اللعبة في هذا المتصفح</h1>
   <p id="od_fail_why">Something went wrong while loading.</p>
-  <p>The desktop builds are on the game's page, and they do not have this
-     limitation. If you are on a phone, note the browser build wants a mouse
-     and a fair amount of memory.</p>
+  <p><button type="button" onclick="location.reload()">إعادة المحاولة</button></p>
   <p><code id="od_fail_detail"></code></p>
 </div></div>
 
@@ -546,7 +563,9 @@ var Module = {
   printErr: function(text) {
     // Emscripten reports a refused heap through stderr before it aborts, so
     // this is where the memory case actually announces itself.
-    if (/memory|allocat|OOM|Aborted/i.test(text)) {
+    if (/Failed to initialize Window|could not open a window|Failed to initialize platform/i.test(text)) {
+      odFail('تعذّر تشغيل رسومات WebGL في هذا المتصفح.', text);
+    } else if (/out of memory|allocation failed|Aborted\(OOM/i.test(text)) {
       odFail('This browser would not give the game enough memory.', text);
     }
     console.error(text);
@@ -587,126 +606,76 @@ window.addEventListener('error', function(e) {
 // does under a mouse, because as far as it knows there is one.
 (function () {
   var cv = Module.canvas;
-  var primary = null;          // the finger currently acting as the cursor
-  var pinchStart = 0;          // distance between two fingers when a pinch began
-  var holdTimer = null;        // long-press watchdog
-  var button = 0;              // which mouse button this finger is standing in for
-  var startPt = null;          // where it went down, to tell a hold from a drag
-
-  // LONG PRESS IS THE RIGHT BUTTON, because the game's most important gesture
-  // needs one. An army moves by HOLDING the army-move button (right mouse by
-  // default) on a province and dragging to a neighbour; artillery and ship
-  // orders work the same way. A finger that could only ever be the left button
-  // could press menus and move sliders and never give an order.
-  //
-  // 380ms and 12px: long enough not to fire on a tap, short enough that nobody
-  // wonders whether it is working, and cancelled by movement so a map drag stays
-  // a map drag.
-  var HOLD_MS = 380, HOLD_SLOP = 12;
-
-  function send(type, x, y, buttons, btn) {
-    cv.dispatchEvent(new MouseEvent(type, {
-      bubbles: true, cancelable: true, clientX: x, clientY: y,
-      button: btn || 0, buttons: buttons
-    }));
+  var finger = null, button = 0, start, last, pinch = 0, hold, release;
+  function mouse(type, point, btn, mask) {
+    cv.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true,
+      clientX: point.clientX, clientY: point.clientY, button: btn, buttons: mask }));
   }
-
-  function dist(a, b) {
-    var dx = a.clientX - b.clientX, dy = a.clientY - b.clientY;
-    return Math.sqrt(dx * dx + dy * dy);
+  function up() {
+    clearTimeout(hold);
+    clearTimeout(release);
+    if (button) mouse('mouseup', last, button - 1, 0);
+    button = 0;
   }
-
-  cv.addEventListener('touchstart', function (e) {
-    e.preventDefault();
-    if (e.touches.length === 1) {
-      primary = e.touches[0].identifier;
-      button = 0;
-      startPt = {x: e.touches[0].clientX, y: e.touches[0].clientY};
-      // Position first, press second, and a frame apart. The game reads input
-      // once per frame; a move and a press delivered in the same instant can be
-      // seen as a press at wherever the cursor happened to be last.
-      send('mousemove', startPt.x, startPt.y, 0);
-      requestAnimationFrame(function () {
-        if (primary !== null) send('mousedown', startPt.x, startPt.y, 1, 0);
-      });
-      clearTimeout(holdTimer);
-      holdTimer = setTimeout(function () {
-        if (primary === null || button !== 0) return;
-        // Let go of the left button and take hold of the right one, in place.
-        send('mouseup', startPt.x, startPt.y, 0, 0);
-        button = 2;
-        send('mousedown', startPt.x, startPt.y, 2, 2);
-      }, HOLD_MS);
-    } else if (e.touches.length === 2) {
-      // A second finger means pinch-zoom, not a drag: let go of the press so
-      // the map does not think it is being dragged while it scales.
-      //
-      // Let go of WHICHEVER button this finger is holding. It is not always the
-      // left one: a finger that has already been down for 380ms is holding the
-      // right button, and releasing the left instead left the army-move button
-      // stuck down for the rest of the session -- after which the next tap
-      // anywhere ordered an army there. Also kill the pending swap, so a finger
-      // that becomes a pinch before 380ms does not press the right button with
-      // nothing left to release it.
-      clearTimeout(holdTimer);
-      if (primary !== null) {
-        send('mouseup', e.touches[0].clientX, e.touches[0].clientY, 0, button);
-        primary = null;
-        button = 0;
-      }
-      pinchStart = dist(e.touches[0], e.touches[1]);
+  function distance(touches) {
+    return Math.hypot(touches[0].clientX - touches[1].clientX,
+                      touches[0].clientY - touches[1].clientY);
+  }
+  // GLFW also converts native touches into mouse presses. Only one stream
+  // should reach it, or its touchend clears our press before the next frame.
+  function listen(type, fn) {
+    cv.addEventListener(type, function (event) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      fn(event);
+    }, { capture: true, passive: false });
+  }
+  listen('touchstart', function (event) {
+    up();
+    if (event.touches.length !== 1) {
+      finger = null;
+      pinch = event.touches.length === 2 ? distance(event.touches) : 0;
+      return;
     }
-  }, { passive: false });
-
-  cv.addEventListener('touchmove', function (e) {
-    e.preventDefault();
-    if (e.touches.length === 1 && primary !== null) {
-      var p = e.touches[0];
-      if (startPt && button === 0 &&
-          Math.abs(p.clientX - startPt.x) + Math.abs(p.clientY - startPt.y) > HOLD_SLOP) {
-        clearTimeout(holdTimer);       // moved: this is a drag, not a hold
-      }
-      send('mousemove', p.clientX, p.clientY, button === 2 ? 2 : 1);
-    } else if (e.touches.length === 2) {
-      var d = dist(e.touches[0], e.touches[1]);
-      if (pinchStart > 0) {
-        var mx = (e.touches[0].clientX + e.touches[1].clientX) / 2;
-        var my = (e.touches[0].clientY + e.touches[1].clientY) / 2;
-        // The map zooms on the wheel, so a pinch becomes wheel notches at the
-        // midpoint between the fingers -- which is where a person expects the
-        // zoom to be centred.
-        var step = (d - pinchStart) / 40;
-        if (Math.abs(step) >= 1) {
-          cv.dispatchEvent(new WheelEvent('wheel', {
-            bubbles: true, cancelable: true, clientX: mx, clientY: my,
-            deltaY: -step * 100, deltaMode: 0
-          }));
-          pinchStart = d;
-        }
+    start = last = event.touches[0];
+    finger = start.identifier;
+    mouse('mousemove', start, 0, 0);
+    button = 1;
+    mouse('mousedown', start, 0, 1);
+    hold = setTimeout(function () {
+      up();
+      button = 3;
+      mouse('mousedown', last, 2, 2);
+    }, 380);
+  });
+  listen('touchmove', function (event) {
+    if (finger !== null && event.touches.length === 1) {
+      last = event.touches[0];
+      if (Math.hypot(last.clientX - start.clientX, last.clientY - start.clientY) > 12)
+        clearTimeout(hold);
+      mouse('mousemove', last, button - 1, button === 3 ? 2 : 1);
+    } else if (event.touches.length === 2) {
+      var a = event.touches[0], b = event.touches[1], d = distance(event.touches);
+      if (pinch && Math.abs(d - pinch) >= 40) {
+        cv.dispatchEvent(new WheelEvent('wheel', { bubbles: true, cancelable: true,
+          clientX: (a.clientX+b.clientX)/2, clientY: (a.clientY+b.clientY)/2,
+          deltaY: (pinch-d)*2.5 }));
+        pinch = d;
       }
     }
-  }, { passive: false });
-
-  function release(e) {
-    e.preventDefault();
-    clearTimeout(holdTimer);
-    if (primary !== null) {
-      var t = (e.changedTouches && e.changedTouches[0]) || { clientX: 0, clientY: 0 };
-      // One frame after the last move, for the same reason as the press: the
-      // game must see the button down for at least one frame or the click
-      // never happened.
-      var b = button;
-      requestAnimationFrame(function () {
-        requestAnimationFrame(function () { send('mouseup', t.clientX, t.clientY, 0, b); });
-      });
-      primary = null;
-      button = 0;
+  });
+  listen('touchend', function (event) {
+    clearTimeout(hold);
+    if (finger !== null && event.changedTouches[0].identifier === finger) {
+      last = event.changedTouches[0];
+      finger = null;
+      // Keep even a sub-frame tap visible to the engine's polling input.
+      release = setTimeout(up, 100);
     }
-    if (e.touches.length < 2) pinchStart = 0;
-  }
-
-  cv.addEventListener('touchend', release, { passive: false });
-  cv.addEventListener('touchcancel', release, { passive: false });
+    if (event.touches.length < 2) pinch = 0;
+  });
+  listen('touchcancel', function () { finger = null; pinch = 0; up(); });
+  window.addEventListener('blur', function () { finger = null; pinch = 0; up(); });
 })();
 </script>
 {{{ SCRIPT }}}
