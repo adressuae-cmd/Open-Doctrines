@@ -74,7 +74,9 @@ EM_JS(int, odFitCanvasJS, (), {
     var dpr = window.matchMedia('(pointer: coarse)').matches ? 1 : (window.devicePixelRatio || 1);
     if (dpr < 1) dpr = 1;
     if (dpr > 2) dpr = 2;
-    var cssW = window.innerWidth | 0, cssH = window.innerHeight | 0;
+    var view = window.odGameViewport ? window.odGameViewport() :
+               { x: 0, y: 0, width: window.innerWidth, height: window.innerHeight };
+    var cssW = view.width | 0, cssH = view.height | 0;
     if (cssW < 1) cssW = 1;
     if (cssH < 1) cssH = 1;
     var w = (cssW * dpr + 0.5) | 0, h = (cssH * dpr + 0.5) | 0;
@@ -82,6 +84,8 @@ EM_JS(int, odFitCanvasJS, (), {
     // CSS box in explicit layout pixels, not 100vw/100vh: those are resolved
     // against the viewport and can disagree with innerWidth when a scrollbar
     // appears, which is one more way for the two boxes to drift apart.
+    c.style.left = view.x + 'px';
+    c.style.top = view.y + 'px';
     c.style.width = cssW + 'px';
     c.style.height = cssH + 'px';
     return (w << 16) | h;
@@ -4455,6 +4459,10 @@ void Game::endFrame() {
     EndDrawing();
 
 #ifdef __EMSCRIPTEN__
+    EM_ASM({
+        if (window.odSetMapControls) window.odSetMapControls($0);
+    }, m_currentScreen == SCREEN_COUNTRY_SELECT ? 1 :
+       (m_currentScreen == SCREEN_PLAYING && !m_paused ? 2 : 0));
     // Take down the HTML boot screen, ONCE, and only now.
     //
     // This is the first moment there is something behind it worth showing. The

@@ -58,7 +58,17 @@ if (matchMedia('(pointer: coarse)').matches) {
   /* touch-action:none stops the browser claiming drags for scroll and pinch
      for page zoom. Without it a finger on the map pans the PAGE, and the game
      never sees the gesture at all. */
-  canvas{display:block;width:100vw;height:100vh;touch-action:none}
+  html,body{width:100%;height:100%;overscroll-behavior:none}
+  canvas{position:fixed;display:block;touch-action:none}
+  #od_map_controls{position:fixed;z-index:5;display:flex;gap:calc(6 * var(--od-unit));
+    direction:ltr;touch-action:manipulation}
+  #od_map_controls[hidden]{display:none}
+  #od_map_controls button{box-sizing:border-box;width:calc(44 * var(--od-unit));
+    height:calc(44 * var(--od-unit));border:1px solid #788398;border-radius:calc(10 * var(--od-unit));
+    background:#151c2eeb;color:white;font:600 calc(20 * var(--od-unit))/1 system-ui,sans-serif;
+    padding:0;touch-action:manipulation}
+  #od_map_controls button:last-child{width:calc(86 * var(--od-unit));font-size:calc(16 * var(--od-unit))}
+  #od_map_controls button:active{background:#45526d}
 
   /* The boot screen sits ABOVE the canvas and BELOW the failure box, so a
      module that dies while loading replaces this rather than arguing with it. */
@@ -591,6 +601,90 @@ window.addEventListener('error', function(e) {
   }
 });
 
+// Visible browser space, including Safari's moving address bar and safe areas.
+window.odGameViewport = function () {
+  var probe = document.getElementById('od_safe_area');
+  if (!probe) {
+    probe = document.createElement('div');
+    probe.id = 'od_safe_area';
+    probe.setAttribute('aria-hidden', 'true');
+    probe.style.cssText = 'position:fixed;visibility:hidden;pointer-events:none;' +
+      'padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)';
+    document.body.appendChild(probe);
+  }
+  var style = getComputedStyle(probe);
+  var top = parseFloat(style.paddingTop) || 0, bottom = parseFloat(style.paddingBottom) || 0;
+  var left = parseFloat(style.paddingLeft) || 0, right = parseFloat(style.paddingRight) || 0;
+  var visible = window.visualViewport;
+  return {
+    x: (visible ? visible.offsetLeft : 0) + left,
+    y: (visible ? visible.offsetTop : 0) + top,
+    width: Math.max(1, Math.floor(Math.min(innerWidth, visible ? visible.width : innerWidth) - left - right)),
+    height: Math.max(1, Math.floor(Math.min(innerHeight, visible ? visible.height : innerHeight) - top - bottom))
+  };
+};
+
+(function () {
+  var controls, mode = 0;
+  function placeControls() {
+    if (!controls) return;
+    var view = window.odGameViewport();
+    var unit = 1 / (window.visualViewport ? visualViewport.scale : 1);
+    controls.style.setProperty('--od-unit', unit + 'px');
+    controls.style.left = (view.x + 10 * unit) + 'px';
+    controls.style.top = Math.max(view.y + 8 * unit, view.y + view.height - 108 * unit) + 'px';
+  }
+  function zoom(step) {
+    var rect = Module.canvas.getBoundingClientRect();
+    Module.canvas.dispatchEvent(new WheelEvent('wheel', {
+      bubbles: true, cancelable: true,
+      clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height * 0.45,
+      deltaY: -step * 100, deltaMode: 0
+    }));
+  }
+  function escape() {
+    function key(type) {
+      Module.canvas.dispatchEvent(new KeyboardEvent(type, {
+        bubbles: true, cancelable: true, key: 'Escape', code: 'Escape', keyCode: 27, which: 27
+      }));
+    }
+    key('keydown');
+    setTimeout(function () { key('keyup'); }, 120);
+  }
+  window.odSetMapControls = function (next) {
+    if (!matchMedia('(pointer: coarse)').matches) return;
+    if (!controls) {
+      controls = document.createElement('nav');
+      controls.id = 'od_map_controls';
+      controls.hidden = true;
+      controls.setAttribute('aria-label', 'التحكم بالخريطة');
+      [['+', 'تكبير الخريطة', function () { zoom(1); }],
+       ['−', 'تصغير الخريطة', function () { zoom(-1); }],
+       ['القائمة', 'القائمة والرجوع', escape]].forEach(function (item) {
+        var button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = item[0];
+        button.setAttribute('aria-label', item[1]);
+        button.addEventListener('click', item[2]);
+        controls.appendChild(button);
+      });
+      document.body.appendChild(controls);
+      placeControls();
+    }
+    if (next !== mode) {
+      mode = next;
+      controls.hidden = !mode;
+      controls.lastElementChild.textContent = mode === 1 ? 'رجوع' : 'القائمة';
+      placeControls();
+    }
+  };
+  window.addEventListener('resize', placeControls);
+  if (window.visualViewport) {
+    visualViewport.addEventListener('resize', placeControls);
+    visualViewport.addEventListener('scroll', placeControls);
+  }
+})();
+
 // ---------------------------------------------------------------- touch ----
 //
 // The game is built entirely on raylib's MOUSE input: 230 call sites across the
@@ -606,7 +700,7 @@ window.addEventListener('error', function(e) {
 // does under a mouse, because as far as it knows there is one.
 (function () {
   var cv = Module.canvas;
-  var finger = null, button = 0, start, last, pinch = 0, hold, release;
+  var finger = null, button = 0, start, last, pinch = 0, hold, release, releaseFrame = 0;
   function mouse(type, point, btn, mask) {
     cv.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true,
       clientX: point.clientX, clientY: point.clientY, button: btn, buttons: mask }));
@@ -614,6 +708,8 @@ window.addEventListener('error', function(e) {
   function up() {
     clearTimeout(hold);
     clearTimeout(release);
+    cancelAnimationFrame(releaseFrame);
+    releaseFrame = 0;
     if (button) mouse('mouseup', last, button - 1, 0);
     button = 0;
   }
@@ -651,15 +747,16 @@ window.addEventListener('error', function(e) {
   listen('touchmove', function (event) {
     if (finger !== null && event.touches.length === 1) {
       last = event.touches[0];
-      if (Math.hypot(last.clientX - start.clientX, last.clientY - start.clientY) > 12)
+      if (Math.hypot(last.clientX - start.clientX, last.clientY - start.clientY) >
+          12 / (window.visualViewport ? visualViewport.scale : 1))
         clearTimeout(hold);
       mouse('mousemove', last, button - 1, button === 3 ? 2 : 1);
     } else if (event.touches.length === 2) {
       var a = event.touches[0], b = event.touches[1], d = distance(event.touches);
-      if (pinch && Math.abs(d - pinch) >= 40) {
+      if (pinch && d > 0 && Math.abs(d - pinch) >= 0.5) {
         cv.dispatchEvent(new WheelEvent('wheel', { bubbles: true, cancelable: true,
           clientX: (a.clientX+b.clientX)/2, clientY: (a.clientY+b.clientY)/2,
-          deltaY: (pinch-d)*2.5 }));
+          deltaY: -Math.log(d / pinch) * 400, deltaMode: 0 }));
         pinch = d;
       }
     }
@@ -670,7 +767,11 @@ window.addEventListener('error', function(e) {
       last = event.changedTouches[0];
       finger = null;
       // Keep even a sub-frame tap visible to the engine's polling input.
-      release = setTimeout(up, 100);
+      release = setTimeout(function () {
+        releaseFrame = requestAnimationFrame(function () {
+          releaseFrame = requestAnimationFrame(up);
+        });
+      }, 80);
     }
     if (event.touches.length < 2) pinch = 0;
   });

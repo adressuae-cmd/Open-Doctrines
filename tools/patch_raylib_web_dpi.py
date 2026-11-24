@@ -57,8 +57,8 @@ BECOME1 = (
     "    // innerHeight for both, which on a high-dpr phone laid the UI out against\n"
     "    // ~390 logical pixels (too zoomed in) and then upscaled it (blurry).\n"
     "    double odDpr = EM_ASM_DOUBLE({ var d = window.matchMedia('(pointer: coarse)').matches ? 1 : (window.devicePixelRatio || 1); if (d < 1) d = 1; if (d > 2) d = 2; return d; });\n"
-    "    int odCssW = EM_ASM_INT( return window.innerWidth; );\n"
-    "    int odCssH = EM_ASM_INT( return window.innerHeight; );\n"
+    "    int odCssW = EM_ASM_INT({ return window.odGameViewport ? window.odGameViewport().width : window.innerWidth; });\n"
+    "    int odCssH = EM_ASM_INT({ return window.odGameViewport ? window.odGameViewport().height : window.innerHeight; });\n"
     "    int width = (int)(odCssW * odDpr + 0.5);\n"
     "    int height = (int)(odCssH * odDpr + 0.5);"
 )
@@ -100,8 +100,13 @@ BECOME2_6 = (
 
 # Each hunk is a list of alternatives -- raylib 5.5's shape, then 6.x's -- and
 # exactly one of them must match.
-PREVIOUS1 = BECOME1.replace("var d = window.matchMedia('(pointer: coarse)').matches ? 1 : (window.devicePixelRatio || 1);", "var d = window.devicePixelRatio || 1;")
-PATCHES = [[(WANT1, BECOME1), (PREVIOUS1, BECOME1)], [(WANT2, BECOME2), (WANT2_6, BECOME2_6)]]
+LEGACY1 = BECOME1.replace(
+    "EM_ASM_INT({ return window.odGameViewport ? window.odGameViewport().width : window.innerWidth; })",
+    "EM_ASM_INT( return window.innerWidth; )").replace(
+    "EM_ASM_INT({ return window.odGameViewport ? window.odGameViewport().height : window.innerHeight; })",
+    "EM_ASM_INT( return window.innerHeight; )")
+PREVIOUS1 = LEGACY1.replace("var d = window.matchMedia('(pointer: coarse)').matches ? 1 : (window.devicePixelRatio || 1);", "var d = window.devicePixelRatio || 1;")
+PATCHES = [[(WANT1, BECOME1), (LEGACY1, BECOME1), (PREVIOUS1, BECOME1)], [(WANT2, BECOME2), (WANT2_6, BECOME2_6)]]
 
 
 def main(argv):

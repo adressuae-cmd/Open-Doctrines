@@ -22,10 +22,7 @@
 // a row of question marks: the zoom and province readouts along the bottom were
 // "???????: 05x | ????????? ?, ????????" in Ukrainian.
 //
-// Text.h is where DrawText and MeasureText become the translating, atlas-aware
-// versions. The country-label loop below is unaffected either way: it picks a
-// font per codepoint and draws through DrawTextPro, which the macros do not
-// touch.
+// Text.h supplies atlas-aware measurement and joined Arabic drawing.
 #include "../i18n/Text.h"
 #include "raymath.h"
 
@@ -2016,22 +2013,13 @@ void MapRenderer::drawCountryNames() {
         bool haveFallback = (m_fallbackFont.texture.id > 0);
         float spacing = 3.0f;
 
-        // ── Decluttering, on the globe only ──
-        //
-        // At whole-planet zoom Europe is thirty countries inside a hand's
-        // breadth, and their names overprint into a grey smear. The flat map
-        // solves this by being zoomed in; the globe has no such escape, because
-        // seeing the whole planet at once is the point of it.
-        //
-        // So: biggest country first, and a name is kept only if its box is clear
-        // of every name already kept. Greedy and one pass -- the ordering is
-        // what makes it look deliberate rather than arbitrary, because the name
-        // that survives a collision is always the more important one.
-        //
-        // Scoped to the globe. The flat map's labelling is not broken and is not
-        // this routine's to change.
+        // Prioritise large countries when labels share limited screen space.
+        // Joined Arabic names use the same collision check on the flat map.
         std::vector<PlacedLabel> taken;
-        const bool declutter = (m_view == ViewMode::Globe);
+        const bool joinedLabels = od::i18n::language() == "ar" ||
+                                  od::i18n::language() == "ur";
+        const bool declutter = joinedLabels || m_view == ViewMode::Globe;
+        std::vector<Rectangle> nameBoxes;
         std::vector<const CountryLabel*> order;
         order.reserve(m_countryLabels->size());
         for (auto& l : *m_countryLabels) order.push_back(&l);
@@ -2091,6 +2079,32 @@ void MapRenderer::drawCountryNames() {
             // nothing ever overlaps anything and the whole test quietly passes
             // everything through.
             displayFs = std::clamp(displayFs, 14.0f, (float)label.fontSize);
+
+            if (joinedLabels) {
+                // Keep Arabic joining and direction in the shared text renderer.
+                // A complete horizontal name also stays readable on a phone.
+                int fontSize = (int)std::clamp(displayFs, 22.0f, 32.0f);
+                const std::string shown = odText::fitToWidth(
+                    label.name, std::min(240, m_screenW / 3), fontSize, 22);
+                const int width = MeasureText(shown.c_str(), fontSize);
+                Rectangle box{sp.x - width * 0.5f - 6.0f,
+                              sp.y - fontSize * 0.5f - 4.0f,
+                              (float)width + 12.0f, (float)fontSize + 8.0f};
+                if (box.x < 4 || box.y < 90 ||
+                    box.x + box.width > m_screenW - 4 ||
+                    box.y + box.height > m_screenH - 90) continue;
+                bool overlaps = false;
+                for (const Rectangle& occupied : nameBoxes) {
+                    if (CheckCollisionRecs(box, occupied)) { overlaps = true; break; }
+                }
+                if (overlaps) continue;
+                nameBoxes.push_back(box);
+                const int x = (int)(sp.x - width * 0.5f);
+                const int y = (int)(sp.y - fontSize * 0.5f);
+                DrawText(shown.c_str(), x + 1, y + 1, fontSize, Color{0, 0, 0, a});
+                DrawText(shown.c_str(), x, y, fontSize, col);
+                continue;
+            }
 
             // Decode UTF-8 into codepoints, determine per-char font
             struct CharInfo { int cp; Font* font; float advance; };
@@ -2524,7 +2538,7 @@ void MapRenderer::draw(const LandSeaMap& landSea, const ProvinceMap& provinces, 
             DrawText(tooltip.c_str(), tipX + tipPad, (totalH - fontSize) / 2 + tipY, fontSize, WHITE);
         } else {
             // Debug OFF: show country name + flag only
-            std::string tooltip = c ? c->name : prov->name;
+            std::string tooltip = c ? od::i18n::properName(c->name) : prov->name;
             int totalW = 2 * tipPad + flagW + tipPad + MeasureText(tooltip.c_str(), fontSize) + 2 * tipPad;
             int totalH = flagH + 2 * tipPad;
             int tipX = m_screenW - totalW - tipPad;
