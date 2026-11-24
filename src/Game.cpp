@@ -1648,6 +1648,9 @@ bool Game::init(int screenW, int screenH, const char* title) {
     // compositor all land here, and "it crashes on launch" is the worst
     // possible way to tell somebody their graphics stack cannot run the game.
     if (!IsWindowReady()) {
+#ifdef __EMSCRIPTEN__
+        EM_ASM({ if (typeof odFail === 'function') odFail('تعذّر تشغيل رسومات WebGL في هذا المتصفح.', 'WebGL'); });
+#endif
         // i18n-ignore: printed before a window, a font or a language exists.
         static const char* kNoWindow =
             "OpenDoctrines could not open a window.\n\n"
@@ -2012,7 +2015,14 @@ void Game::applyUiScale() {
     constexpr float kMinLogicalRows = 720.0f;
     const float physicalRows = (float)GetScreenHeight() * odUi::scale();
     const float roomFor = std::max(1.0f, physicalRows / kMinLogicalRows);
-    odUi::setScale(std::min(m_uiScaleBase * m_config.uiScale, std::max(m_uiScaleBase, roomFor)));
+    float scale = std::min(m_uiScaleBase * m_config.uiScale, std::max(m_uiScaleBase, roomFor));
+#ifdef __EMSCRIPTEN__
+    // A tall phone still needs enough logical columns for the scenario cards
+    // and economy panels. Use the same scale for drawing and pointer hit tests.
+    const float physicalCols = (float)GetScreenWidth() * odUi::scale();
+    scale = std::min(scale, std::min(physicalCols / 800.0f, physicalRows / kMinLogicalRows));
+#endif
+    odUi::setScale(scale);
     // Push the active interface skin to the process-wide slot free draw helpers
     // read (drawButton etc.). Harmless to redo here; 1.4.0b's settings picker
     // will also call setActiveTheme on apply so a style change needs no resize.
