@@ -632,7 +632,7 @@ window.odGameViewport = function () {
     var unit = 1 / (window.visualViewport ? visualViewport.scale : 1);
     controls.style.setProperty('--od-unit', unit + 'px');
     controls.style.left = (view.x + 10 * unit) + 'px';
-    controls.style.top = Math.max(view.y + 8 * unit, view.y + view.height - 108 * unit) + 'px';
+    controls.style.top = Math.max(view.y + 8 * unit, view.y + view.height - 156 * unit) + 'px';
   }
   function zoom(step) {
     var rect = Module.canvas.getBoundingClientRect();
