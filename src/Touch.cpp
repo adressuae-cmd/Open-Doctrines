@@ -1,4 +1,7 @@
 #include "Touch.h"
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
 #include <cmath>
 
 namespace odTouch {
@@ -247,7 +250,16 @@ void update(float dt, int screenW, int screenH) {
 
 bool active() { return s_active; }
 bool suppressesMouse() { return s_active; }
-bool present() { return s_present; }
+bool present() {
+#ifdef __EMSCRIPTEN__
+    // The web shell feeds taps to raylib as mouse clicks. Keep the phone's
+    // pause/save control available even if the engine sees zero raw touches.
+    static const bool coarsePointer = EM_ASM_INT({ return window.matchMedia('(pointer: coarse)').matches ? 1 : 0; });
+    return s_present || coarsePointer;
+#else
+    return s_present;
+#endif
+}
 Vector2 cursor() { return s_cursor; }
 Vector2 delta() { return s_delta; }
 void placeCursor(Vector2 p) { s_cursor = p; } // What the fuck past me

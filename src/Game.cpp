@@ -3500,7 +3500,11 @@ void Game::run() {
         odPad::update(dt, m_screenW, m_screenH);
         // After the pad, so a device with both lets the last thing touched win.
         odTouch::update(dt, m_screenW, m_screenH);
+#ifdef __EMSCRIPTEN__
+        osk::setTouchDriving(odTouch::present());
+#else
         osk::setTouchDriving(odTouch::active());
+#endif
 
         // Above the popup early-out below: the music stream has to be fed on
         // every frame, and a popup is exactly when it must not stutter.
