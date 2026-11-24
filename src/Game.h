@@ -2319,7 +2319,11 @@ public:
         // a scale of 1.00 -- so it is reasoned from raylib's source and written
         // down rather than left to be discovered on somebody's monitor.
         if (IsWindowState(FLAG_WINDOW_HIGHDPI)) return 1.0f;
-#if defined(OD_DESKTOP_SDL)
+#if defined(__EMSCRIPTEN__)
+        // GLFW maps CSS pointer coordinates into its framebuffer already.
+        // Multiplying by devicePixelRatio again moves phone taps off the button.
+        return 1.0f;
+#elif defined(OD_DESKTOP_SDL)
         // On the SDL backend the pointer, the window and the framebuffer are
         // all physical pixels (see Game::init), so there is nothing to undo.
         // GetWindowScaleDPI() would be wrong here, not just redundant: under

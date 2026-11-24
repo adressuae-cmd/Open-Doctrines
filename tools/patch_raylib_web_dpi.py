@@ -56,7 +56,7 @@ BECOME1 = (
     "    // resolution, CSS box left at layout pixels. Upstream used innerWidth/\n"
     "    // innerHeight for both, which on a high-dpr phone laid the UI out against\n"
     "    // ~390 logical pixels (too zoomed in) and then upscaled it (blurry).\n"
-    "    double odDpr = EM_ASM_DOUBLE({ var d = window.devicePixelRatio || 1; if (d < 1) d = 1; if (d > 2) d = 2; return d; });\n"
+    "    double odDpr = EM_ASM_DOUBLE({ var d = window.matchMedia('(pointer: coarse)').matches ? 1 : (window.devicePixelRatio || 1); if (d < 1) d = 1; if (d > 2) d = 2; return d; });\n"
     "    int odCssW = EM_ASM_INT( return window.innerWidth; );\n"
     "    int odCssH = EM_ASM_INT( return window.innerHeight; );\n"
     "    int width = (int)(odCssW * odDpr + 0.5);\n"
@@ -100,7 +100,8 @@ BECOME2_6 = (
 
 # Each hunk is a list of alternatives -- raylib 5.5's shape, then 6.x's -- and
 # exactly one of them must match.
-PATCHES = [[(WANT1, BECOME1)], [(WANT2, BECOME2), (WANT2_6, BECOME2_6)]]
+PREVIOUS1 = BECOME1.replace("var d = window.matchMedia('(pointer: coarse)').matches ? 1 : (window.devicePixelRatio || 1);", "var d = window.devicePixelRatio || 1;")
+PATCHES = [[(WANT1, BECOME1), (PREVIOUS1, BECOME1)], [(WANT2, BECOME2), (WANT2_6, BECOME2_6)]]
 
 
 def main(argv):

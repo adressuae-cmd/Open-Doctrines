@@ -71,7 +71,7 @@
 EM_JS(int, odFitCanvasJS, (), {
     var c = document.getElementById('canvas');
     if (!c) return 0;
-    var dpr = window.devicePixelRatio || 1;
+    var dpr = window.matchMedia('(pointer: coarse)').matches ? 1 : (window.devicePixelRatio || 1);
     if (dpr < 1) dpr = 1;
     if (dpr > 2) dpr = 2;
     var cssW = window.innerWidth | 0, cssH = window.innerHeight | 0;
