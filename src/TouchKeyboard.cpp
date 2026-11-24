@@ -1,6 +1,7 @@
 // The keyboard for platforms that have none. See TouchKeyboard.h.
 
 #include "TouchKeyboard.h"
+#include "UiScale.h"
 
 // raylib's own calls, not the shim's: this file IS the shim's other side, and
 // redirecting its own reads to itself would be a loop.
@@ -252,7 +253,7 @@ void draw() {
 
     // One touch at a time, released rather than pressed: a finger that lands
     // on the wrong key can slide off it.
-    const Vector2 m = GetMousePosition();
+    const Vector2 m = odPointerIn(GetMousePosition(), 1.0f, odUi::scale());
     const bool tapped = IsMouseButtonReleased(MOUSE_BUTTON_LEFT) &&
                         GetTime() - g_lastTap > 0.06;   // ignore a double report
 
