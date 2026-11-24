@@ -651,7 +651,9 @@ window.odGameViewport = function () {
     key('keydown');
     setTimeout(function () { key('keyup'); }, 120);
   }
-  window.odSetMapControls = function (next) {
+  window.odSetMapControls = function (next, screen) {
+    window.odInputFrameId = (window.odInputFrameId || 0) + 1;
+    if (typeof screen === 'number') window.odCurrentScreen = screen;
     if (!matchMedia('(pointer: coarse)').matches) return;
     if (!controls) {
       controls = document.createElement('nav');
@@ -701,8 +703,9 @@ window.odGameViewport = function () {
 (function () {
   var cv = Module.canvas;
   var finger = null, button = 0, start, last, pinch = 0, hold, release;
-  var pressFrame = 0, releaseFrame = 0, ended = false;
+  var pressFrame = 0, releaseFrame = 0, ended = false, pressedAtFrame, gestureScreen = -1;
   function mouse(type, point, btn, mask) {
+    if (type === 'mousedown' && btn === 0) window.odTouchPressScreen = gestureScreen;
     cv.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true,
       clientX: point.clientX, clientY: point.clientY, button: btn, buttons: mask }));
   }
@@ -715,12 +718,23 @@ window.odGameViewport = function () {
     if (button) mouse('mouseup', last, button - 1, 0);
     button = 0;
   }
+  function sampledFrames(since) {
+    return typeof since !== 'number' || window.odInputFrameId >= since + 2;
+  }
   function queueRelease() {
     clearTimeout(release);
     cancelAnimationFrame(releaseFrame);
+    var deadline = performance.now() + 2000;
+    function finish() {
+      if (!sampledFrames(pressedAtFrame) && performance.now() < deadline) {
+        releaseFrame = requestAnimationFrame(finish);
+        return;
+      }
+      up();
+    }
     release = setTimeout(function () {
       releaseFrame = requestAnimationFrame(function () {
-        releaseFrame = requestAnimationFrame(up);
+        releaseFrame = requestAnimationFrame(finish);
       });
     }, 80);
   }
@@ -747,20 +761,31 @@ window.odGameViewport = function () {
     start = last = event.touches[0];
     finger = start.identifier;
     ended = false;
+    gestureScreen = typeof window.odCurrentScreen === 'number' ? window.odCurrentScreen : -1;
     mouse('mousemove', start, 0, 0);
-    // Let the engine sample the new cursor before holding the pan button.
-    // The queued press survives a quick tap that ends before these frames.
+    // Wait for game frames so a cursor jump cannot become a pan.
+    // Keep quick taps queued until the game has sampled their press.
+    var movedAtFrame = window.odInputFrameId;
+    var deadline = performance.now() + 2000;
+    function press() {
+      if (!sampledFrames(movedAtFrame)) {
+        if (performance.now() >= deadline) { finger = null; up(); return; }
+        pressFrame = requestAnimationFrame(press);
+        return;
+      }
+      pressFrame = 0;
+      button = 1;
+      pressedAtFrame = window.odInputFrameId;
+      mouse('mousedown', last, 0, 1);
+      if (ended) queueRelease();
+    }
     pressFrame = requestAnimationFrame(function () {
-      pressFrame = requestAnimationFrame(function () {
-        pressFrame = 0;
-        button = 1;
-        mouse('mousedown', last, 0, 1);
-        if (ended) queueRelease();
-      });
+      pressFrame = requestAnimationFrame(press);
     });
     hold = setTimeout(function () {
       up();
       button = 3;
+      pressedAtFrame = window.odInputFrameId;
       mouse('mousedown', last, 2, 2);
     }, 380);
   });

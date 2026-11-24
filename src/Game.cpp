@@ -3480,7 +3480,6 @@ void Game::run() {
         // Recorded here rather than guarded at each call site, because the
         // bug belongs to the pair and not to either button -- and the next
         // pair would otherwise be found the same way this one was.
-        if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) m_pressScreen = m_currentScreen;
 
         // ── ABOVE EVERY EARLY-OUT IN THIS LOOP, WHICH IS THE WHOLE POINT ──
         //
@@ -3504,6 +3503,19 @@ void Game::run() {
         odPad::update(dt, m_screenW, m_screenH);
         // After the pad, so a device with both lets the last thing touched win.
         odTouch::update(dt, m_screenW, m_screenH);
+        // Sample touch and controller edges after their frame state is current.
+        if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) m_pressScreen = m_currentScreen;
+#ifdef __EMSCRIPTEN__
+        // Preserve the origin of a browser touch even if a short press falls
+        // between raylib polls during a slow frame.
+        const int touchPressScreen = EM_ASM_INT({
+            var screen = window.odTouchPressScreen;
+            window.odTouchPressScreen = -1;
+            return typeof screen === 'number' ? screen : -1;
+        });
+        if (touchPressScreen >= 0)
+            m_pressScreen = static_cast<ScreenState>(touchPressScreen);
+#endif
 #ifdef __EMSCRIPTEN__
         osk::setTouchDriving(odTouch::present());
 #else
@@ -4460,9 +4472,10 @@ void Game::endFrame() {
 
 #ifdef __EMSCRIPTEN__
     EM_ASM({
-        if (window.odSetMapControls) window.odSetMapControls($0);
+        if (window.odSetMapControls) window.odSetMapControls($0, $1);
     }, m_currentScreen == SCREEN_COUNTRY_SELECT ? 1 :
-       (m_currentScreen == SCREEN_PLAYING && !m_paused ? 2 : 0));
+       (m_currentScreen == SCREEN_PLAYING && !m_paused ? 2 : 0),
+       static_cast<int>(m_currentScreen));
     // Take down the HTML boot screen, ONCE, and only now.
     //
     // This is the first moment there is something behind it worth showing. The

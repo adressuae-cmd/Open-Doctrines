@@ -2441,7 +2441,7 @@ void Game::drawCountrySelect() {
             DrawRectangleRounded(L.box, 0.2f, 8, {30, 30, 50, 255});
             DrawRectangleRoundedLines(L.box, 0.2f, 8, {100, 100, 160, 255});
 
-            std::string question = "Play as " + c->name + "?";
+            std::string question = "Play as " + od::i18n::properName(c->name) + "?";
             DrawText(question.c_str(),
                      (int)(L.box.x + (L.box.width - MeasureText(question.c_str(), 24)) / 2),
                      (int)L.questionY, 24, WHITE);
@@ -2529,6 +2529,16 @@ void Game::updateCountrySelect() {
     Vector2 mouse = getMouse();
     int mx = (int)mouse.x;
     int my = (int)mouse.y;
+
+    if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
+        int px = 0, py = 0;
+        m_renderer->screenToPixel(mouse.x, mouse.y, px, py);
+        const Province* hit = m_provinces.getProvince(px, py);
+        LoadLog() << "[INPUT] country select origin=" << (int)m_pressScreen
+                  << " screen=" << (int)m_currentScreen
+                  << " dragged=" << m_renderer->getWasDragged()
+                  << " country=" << (hit ? hit->countryId : -1) << std::endl;
+    }
 
     // Spectator button rect (must match drawCountrySelect)
     const char* spectateText = "Continue as Spectator";
