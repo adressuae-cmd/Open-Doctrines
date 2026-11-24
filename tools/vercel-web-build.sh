@@ -18,7 +18,8 @@ fi
 source "$emsdk_home/emsdk_env.sh"
 
 python3 -m pip install --user fonttools || echo "Optional fonttools unavailable; continuing"
-emcmake cmake -S . -B build-web -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXE_LINKER_FLAGS_RELEASE=-O0 -DOD_WEB_MAXIMUM_MEMORY=2GB
+emcmake cmake -S . -B build-web -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXE_LINKER_FLAGS_RELEASE=-O0 \
+  -DOD_WEB_INITIAL_MEMORY=64MB -DOD_WEB_MAXIMUM_MEMORY=2GB -DOD_MAP_DIVISOR=2
 emmake cmake --build build-web --target OpenDoctrines -j 4
 
 mkdir -p site
